@@ -25,6 +25,8 @@ public sealed class ProceduralGraphBuilder : EditorPlugin
             Author = "William Brocklesby",
             AuthorUrl = "https://william-brocklesby.com",
             Category = "Procedural Graph",
+            Description = "Procedural Graph Core is Flax Engine Editor Plugin designed to facilitate the creation and management of procedural generation graphs. It provides a framework for converting scene Actors into processing Nodes, which can then execute asynchronous generation tasks.",
+            RepositoryUrl = "https://github.com/will11600/Procedural-Graph-Core.git",
             Version = new(1, 0, 0)
         };
     }

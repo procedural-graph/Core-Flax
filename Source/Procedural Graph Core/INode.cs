@@ -1,4 +1,6 @@
-﻿using System;
+﻿using FlaxEditor.CustomEditors;
+using FlaxEngine;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +21,16 @@ public interface INode : IDisposable
     /// Gets the configuration parameters for this node.
     /// </summary>
     ICollection<Model> Models { get; }
+
+    /// <summary>
+    /// Gets or the Actor associated with this node.
+    /// </summary>
+    Actor Actor { get; }
+
+    /// <summary>
+    /// Gets a <see cref="CustomValueContainer"/> of configurable values to display in the editor.
+    /// </summary>
+    CustomValueContainer ValueContainer { get; }
 
     /// <summary>
     /// Requests that the node stop any background processing immediately.

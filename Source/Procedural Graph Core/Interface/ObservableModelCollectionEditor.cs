@@ -8,7 +8,7 @@ namespace ProceduralGraph.Interface;
 /// ObservableModelCollectionEditor class.
 /// </summary>
 [CustomEditor(typeof(ObservableCollection<Model>))]
-internal sealed class ObservableModelCollectionEditor : CollectionEditor
+internal sealed class ObservableModelCollectionEditor : ListEditor
 {
     private ObservableCollection<Model> Target => (Values[0] as ObservableCollection<Model>)!;
 

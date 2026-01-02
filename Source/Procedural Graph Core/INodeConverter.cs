@@ -1,4 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using FlaxEngine;
 
 namespace ProceduralGraph;
@@ -9,10 +11,18 @@ namespace ProceduralGraph;
 public interface INodeConverter
 {
     /// <summary>
-    /// Attempts to convert the specified actor into an <see cref="INode"/>.
+    /// Determines whether the specified actor can be converted into an <see cref="INode"/>.
     /// </summary>
     /// <param name="actor">The actor to evaluate.</param>
-    /// <param name="node">The resulting node if conversion succeeds.</param>
     /// <returns>True if the actor was compatible and converted; otherwise false.</returns>
-    bool TryConvert(Actor actor, [NotNullWhen(true)] out INode? node);
+    bool CanConvert(Actor actor);
+
+    /// <summary>
+    /// Converts the specified actor into an <see cref="INode"/>.
+    /// </summary>
+    /// <param name="actor">The actor to convert.</param>
+    /// <param name="models">The deserialized <see cref="Model"/> instances for this actor.</param>
+    /// <returns>The resulting node.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the specified actor cannot be converted.</exception>
+    INode Convert(Actor actor, IEnumerable<Model> models);
 }

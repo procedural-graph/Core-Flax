@@ -33,7 +33,7 @@ internal sealed class ModelEditor : GenericEditor
     {
         _comboBox = layout.ComboBox("Type").ComboBox;
         _comboBox.Items.AddRange(Factories.Keys);
-
+       
         if (Values[0] is object target)
         {
             Type type = target.GetType();

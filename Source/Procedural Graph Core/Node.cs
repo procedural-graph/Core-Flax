@@ -5,6 +5,8 @@ using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using FlaxEditor;
+using FlaxEditor.CustomEditors;
+using FlaxEditor.Scripting;
 using FlaxEngine;
 
 namespace ProceduralGraph;
@@ -14,6 +16,8 @@ namespace ProceduralGraph;
 /// </summary>
 public class Node : INode
 {
+    private static readonly ScriptType _collectionType = new(typeof(ObservableCollection<Model>));
+
     /// <summary>
     /// The time to wait after a property change before triggering a rebuild, used to prevent excessive re-computation.
     /// </summary>
@@ -52,10 +56,11 @@ public class Node : INode
     /// </summary>
     public IGenerator Generator { get; }
 
-    /// <summary>
-    /// Gets or the Actor associated with this node.
-    /// </summary>
+    /// <inheritdoc/>
     public Actor Actor { get; }
+
+    /// <inheritdoc/>
+    public CustomValueContainer ValueContainer { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Node"/> class.
@@ -77,6 +82,10 @@ public class Node : INode
         semaphore = new(1, 1);
         debouncePeriod = TimeSpan.FromSeconds(debounceSeconds);
         stoppingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        ValueContainer = new(_collectionType, (instance, index) => _models)
+        {
+            _models
+        };
     }
 
     /// <summary>

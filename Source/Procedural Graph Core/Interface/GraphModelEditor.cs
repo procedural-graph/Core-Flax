@@ -12,16 +12,16 @@ using System.Reflection;
 namespace ProceduralGraph.Interface;
 
 /// <summary>
-/// ModelEditor class.
+/// GraphModelEditor class.
 /// </summary>
-[CustomEditor(typeof(Model))]
-internal sealed class ModelEditor : GenericEditor
+[CustomEditor(typeof(GraphModel))]
+internal sealed class GraphModelEditor : GenericEditor
 {
-    internal static ImmutableDictionary<string, Func<Model>> Factories { get; }
+    internal static ImmutableDictionary<string, Func<GraphModel>> Factories { get; }
 
     private ComboBox? _comboBox;
 
-    static ModelEditor()
+    static GraphModelEditor()
     {
         Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
         Factories = assemblies.SelectMany(Types)
@@ -66,20 +66,20 @@ internal sealed class ModelEditor : GenericEditor
         }
     }
 
-    private static Func<Model> MakeFactory(Type type)
+    private static Func<GraphModel> MakeFactory(Type type)
     {
         var ctor = type.GetConstructor(Type.EmptyTypes) ?? throw new ArgumentException($"Type '{type.Name}' must have a public parameterless constructor.", nameof(type));
 
         var newExpression = Expression.New(ctor);
-        var castExpression = Expression.Convert(newExpression, typeof(Model));
-        var lambda = Expression.Lambda<Func<Model>>(castExpression);
+        var castExpression = Expression.Convert(newExpression, typeof(GraphModel));
+        var lambda = Expression.Lambda<Func<GraphModel>>(castExpression);
 
         return lambda.Compile();
     }
 
     private static string NameOf(Type type)
     {
-        return $"{(type.GetCustomAttribute<DisplayNameAttribute>() is DisplayNameAttribute attribute ? attribute.DisplayName : type.Name)} ({type.FullName})";
+        return $"{(type.GetCustomAttribute<DisplayNameAttribute>() is DisplayNameAttribute attribute ? attribute.DisplayName : type.Name)} ({type.Namespace})";
     }
 
     private static Type[] Types(Assembly assembly)
@@ -89,6 +89,6 @@ internal sealed class ModelEditor : GenericEditor
 
     private static bool IsAssignableToT(Type type)
     {
-        return !type.IsAbstract && type.IsAssignableTo(typeof(Model));
+        return !type.IsAbstract && type.IsAssignableTo(typeof(GraphModel));
     }
 }

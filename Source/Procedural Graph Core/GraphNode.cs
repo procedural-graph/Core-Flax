@@ -12,11 +12,12 @@ using FlaxEngine;
 namespace ProceduralGraph;
 
 /// <summary>
-/// A base implementation of a graph node that handles asynchronous generation, property change debouncing, and thread safety.
+/// A default implementation of a graph node that handles asynchronous generation, property change debouncing, and thread safety.
 /// </summary>
-public class Node : INode
+/// <typeparam name="T">The type of generator to use.</typeparam>
+public class GraphNode<T> : IGraphNode where T : IGenerator<T>
 {
-    private static readonly ScriptType _collectionType = new(typeof(ObservableCollection<Model>));
+    private static readonly ScriptType _collectionType = new(typeof(ObservableCollection<GraphModel>));
 
     /// <summary>
     /// The time to wait after a property change before triggering a rebuild, used to prevent excessive re-computation.
@@ -45,16 +46,11 @@ public class Node : INode
     /// </summary>
     protected bool IsDisposed { get; private set; }
 
-    private readonly ObservableCollection<Model> _models;
+    private readonly ObservableCollection<GraphModel> _models;
     /// <summary>
     /// Gets the parameters associated with this node.
     /// </summary>
-    public ICollection<Model> Models => _models;
-
-    /// <summary>
-    /// Gets the generator responsible for the build logic.
-    /// </summary>
-    public IGenerator Generator { get; }
+    public ICollection<GraphModel> Models => _models;
 
     /// <inheritdoc/>
     public Actor Actor { get; }
@@ -63,26 +59,30 @@ public class Node : INode
     public CustomValueContainer ValueContainer { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Node"/> class.
+    /// Initializes a new instance of the <see cref="GraphNode{T}"/> class.
     /// </summary>
     /// <param name="actor">The Actor associated with this node.</param>
-    /// <param name="generator">The generation logic provider.</param>
     /// <param name="cancellationToken">A token to observe for external cancellation.</param>
-    /// <param name="parameters">The data model for this node.</param>
+    /// <param name="models">The data models for this node.</param>
     /// <param name="debounceSeconds">The delay in seconds to wait for changes to settle before rebuilding.</param>
-    /// <exception cref="ArgumentNullException">Thrown if generator or parameters are null.</exception>
-    public Node(Actor actor, IGenerator generator, ReadOnlySpan<Model> parameters, CancellationToken cancellationToken, double debounceSeconds = 0.2)
+    public GraphNode(Actor actor, IEnumerable<GraphModel> models, CancellationToken cancellationToken, double debounceSeconds = 0.2)
     {
-        _models = [.. parameters];
+        _models = [.. models];
         _models.CollectionChanged += OnCollectionChanged;
         _models.ItemPropertyChanged += OnPropertyChanged;
 
         Actor = actor;
-        Generator = generator ?? throw new ArgumentNullException(nameof(generator));
         semaphore = new(1, 1);
         debouncePeriod = TimeSpan.FromSeconds(debounceSeconds);
         stoppingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        ValueContainer = new(_collectionType, (instance, index) => _models)
+        stoppingCts.Token.Register(OnStopping);
+
+        CollectionAttribute collectionAttribute = new()
+        {
+            Display = CollectionAttribute.DisplayType.Header
+        };
+
+        ValueContainer = new(_collectionType, (instance, index) => _models, attributes: [collectionAttribute])
         {
             _models
         };
@@ -123,6 +123,7 @@ public class Node : INode
     /// </summary>
     protected virtual async void StartGenerating()
     {
+        T? generator = default;
         try
         {
             using PeriodicTimer periodicTimer = new(debouncePeriod);
@@ -130,7 +131,8 @@ public class Node : INode
             {
                 if (!isDirty)
                 {
-                    await Generator.BuildAsync(_models, stoppingCts.Token);
+                    generator = T.Create(Actor, _models);
+                    await generator.BuildAsync(stoppingCts.Token);
                 }
             }
         }
@@ -145,6 +147,10 @@ public class Node : INode
         finally
         {
             semaphore.Release();
+            if (generator is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
     }
 
@@ -163,10 +169,23 @@ public class Node : INode
     }
 
     /// <summary>
+    /// Called when <see cref="StoppingToken"/> is cancelled.
+    /// </summary>
+    protected virtual void OnStopping()
+    {
+        _models.CollectionChanged -= OnCollectionChanged;
+        _models.ItemPropertyChanged -= OnPropertyChanged;
+    }
+
+    /// <summary>
     /// Disposes resources used by the node.
     /// </summary>
-    /// <param name="disposing">True if called from Dispose(), false if from a finalizer.</param>
-    protected virtual void Dispose(bool disposing)
+    protected virtual void OnDisposing()
+    {
+        stoppingCts.Dispose();
+    }
+
+    private void Dispose(bool disposing)
     {
         if (IsDisposed)
         {
@@ -175,9 +194,7 @@ public class Node : INode
 
         if (disposing)
         {
-            _models.CollectionChanged -= OnCollectionChanged;
-            _models.ItemPropertyChanged -= OnPropertyChanged;
-            stoppingCts.Dispose();
+            OnDisposing();
         }
 
         IsDisposed = true;

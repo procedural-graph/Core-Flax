@@ -5,18 +5,18 @@ using FlaxEngine;
 namespace ProceduralGraph.Interface;
 
 /// <summary>
-/// ObservableModelCollectionEditor class.
+/// GraphModelCollectionEditor class.
 /// </summary>
-[CustomEditor(typeof(ObservableCollection<Model>))]
-internal sealed class ObservableModelCollectionEditor : ListEditor
+[CustomEditor(typeof(ObservableCollection<GraphModel>))]
+internal sealed class GraphModelCollectionEditor : ListEditor
 {
-    private ObservableCollection<Model> Target => (Values[0] as ObservableCollection<Model>)!;
+    private ObservableCollection<GraphModel> Target => (Values[0] as ObservableCollection<GraphModel>)!;
 
     public override int Count => Target.Count;
 
     protected override IList Allocate(int size)
     {
-        return new ObservableCollection<Model>(size);
+        return new ObservableCollection<GraphModel>(size);
     }
 
     protected override IList CloneValues()

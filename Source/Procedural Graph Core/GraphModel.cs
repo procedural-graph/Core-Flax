@@ -11,7 +11,7 @@ namespace ProceduralGraph;
 /// Base class for all node parameter data models. Implements property change notification 
 /// with high-performance bitwise updates for enum flags.
 /// </summary>
-public abstract class Model : INotifyPropertyChanged
+public abstract class GraphModel : INotifyPropertyChanged
 {
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;

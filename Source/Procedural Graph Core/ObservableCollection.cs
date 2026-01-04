@@ -95,12 +95,12 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
     {
         get
         {
-            if ((uint)index >= (uint)Count) throw new ArgumentOutOfRangeException(nameof(index));
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)Count, nameof(index));
             return _items[index];
         }
         set
         {
-            if ((uint)index >= (uint)Count) throw new ArgumentOutOfRangeException(nameof(index));
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)Count, nameof(index));
             ArgumentNullException.ThrowIfNull(value, nameof(value));
 
             T originalItem = _items[index];

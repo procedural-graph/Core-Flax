@@ -10,7 +10,7 @@ namespace ProceduralGraph;
 /// <summary>
 /// Represents a processing unit within the procedural graph.
 /// </summary>
-public interface INode : IDisposable
+public interface IGraphNode : IDisposable
 {
     /// <summary>
     /// Gets a cancellation token that is triggered when the node is stopping or disposing.
@@ -20,7 +20,7 @@ public interface INode : IDisposable
     /// <summary>
     /// Gets the configuration parameters for this node.
     /// </summary>
-    ICollection<Model> Models { get; }
+    ICollection<GraphModel> Models { get; }
 
     /// <summary>
     /// Gets or the Actor associated with this node.

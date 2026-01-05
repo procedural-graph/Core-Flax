@@ -34,7 +34,7 @@ internal sealed class GraphInstance : IReadOnlyDictionary<Actor, IGraphEntity>, 
 
     public GraphInstance(Scene scene, GraphLifecycleManager lifecycleManager)
     {
-        AssetPath = Path.Combine(Globals.ProjectContentFolder, "SceneData", scene.Name, "Procedural Graph.json");
+        AssetPath = Path.Combine(Globals.ProjectContentFolder, "SceneData", scene.Filename, "Procedural Graph.json");
         Scene = scene ?? throw new ArgumentNullException(nameof(scene));
         LifecycleManager = lifecycleManager ?? throw new ArgumentNullException(nameof(lifecycleManager));
 

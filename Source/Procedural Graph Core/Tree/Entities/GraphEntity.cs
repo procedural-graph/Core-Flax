@@ -52,7 +52,7 @@ public abstract class GraphEntity : IGraphEntity
             try
             {
                 await Key.StopAsync(_collection.StoppingToken).ConfigureAwait(false);
-                _collection.NotifyStateChanged();
+                _collection.OnStateChanged();
             }
             catch (Exception ex)
             {
@@ -209,19 +209,19 @@ public abstract class GraphEntity : IGraphEntity
     }
 
     /// <summary>
-    /// Raises the StateChanged event to notify subscribers that the object's state has changed.
+    /// Raises the <see cref="StateChanged"/> event to notify subscribers that the object's state has changed.
     /// </summary>
-    protected virtual void NotifyStateChanged() => StateChanged?.Invoke();
+    protected virtual void OnStateChanged() => StateChanged?.Invoke();
 
     /// <summary>
-    /// Raises the Regenerating event to notify subscribers that a regeneration process is occurring.
+    /// Raises the <see cref="Regenerating"/> event to notify subscribers that a regeneration process is occurring.
     /// </summary>
-    protected virtual void NotifyRegenerating() => Regenerating?.Invoke();
+    protected virtual void OnRegenerating() => Regenerating?.Invoke();
 
     /// <summary>
-    /// Raises the Regenerated event to notify subscribers that regeneration has occurred.
+    /// Raises the <see cref="Regenerated"/> event to notify subscribers that regeneration has occurred.
     /// </summary>
-    protected virtual void NotifyRegenerated() => Regenerated?.Invoke();
+    protected virtual void OnRegenerated() => Regenerated?.Invoke();
 
     /// <inheritdoc/>
     public override string ToString()

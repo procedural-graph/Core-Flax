@@ -1,28 +1,56 @@
-﻿using System.Collections.Generic;
-using System.Threading;
-using FlaxEngine;
+﻿using FlaxEngine;
 
 namespace ProceduralGraph;
 
 /// <summary>
-/// Defines a contract for classes capable of converting a Flax Engine <see cref="Actor"/> into a graph entity.
+/// Defines the contract for converting between Flax Engine objects (models or actors) and procedural graph entities.
 /// </summary>
 public interface IGraphConverter
 {
     /// <summary>
-    /// Determines whether the specified actor can be converted into an <see cref="IGraphEntity"/>.
+    /// Determines whether the specified object model can be converted by this converter.
     /// </summary>
-    /// <param name="actor">The actor to evaluate.</param>
-    /// <returns>True if the actor was compatible; otherwise false.</returns>
-    bool CanConvert(Actor actor);
+    /// <param name="model">The object model to check for compatibility.</param>
+    /// <returns><see langword="true"/> if the model can be converted; otherwise, <see langword="false"/>.</returns>
+    bool CanConvert(object? model);
 
     /// <summary>
-    /// Converts the specified actor into an <see cref="IGraphEntity"/>.
+    /// Determines whether the specified Flax Actor can be converted by this converter.
     /// </summary>
-    /// <param name="actor">The actor to convert.</param>
-    /// <param name="components">The deserialized <see cref="GraphComponent"/> instances for this actor.</param>
-    /// <param name="stoppingToken">A cancellation token that is triggered when the <see cref="GraphLifecycleManager"/> is unloaded.</param>
-    /// <returns>The resulting entity.</returns>
-    /// <exception cref="System.ArgumentException">Thrown if the specified actor cannot be converted.</exception>
-    IGraphEntity Convert(Actor actor, IEnumerable<GraphComponent> components, CancellationToken stoppingToken);
+    /// <param name="actor">The <see cref="Actor"/> to check for compatibility.</param>
+    /// <returns><see langword="true"/> if the actor can be converted; otherwise, <see langword="false"/>.</returns>
+    bool CanConvert(Actor? actor);
+
+    /// <summary>
+    /// Determines whether the specified graph entity can be converted back to its original model.
+    /// </summary>
+    /// <param name="entity">The <see cref="IGraphEntity"/> to check for compatibility.</param>
+    /// <returns><see langword="true"/> if the entity can be converted; otherwise, <see langword="false"/>.</returns>
+    bool CanConvert(IGraphEntity? entity);
+
+    /// <summary>
+    /// Converts a model object into a procedural graph entity.
+    /// </summary>
+    /// <param name="model">The source model to convert.</param>
+    /// <param name="lifecycleManager">The manager handling the creation and disposal of procedural entities.</param>
+    /// <param name="root">The root entity in the graph hierarchy, if applicable.</param>
+    /// <returns>The converted <see cref="IGraphEntity"/>.</returns>
+    IGraphEntity ToEntity(object model, GraphLifecycleManager lifecycleManager, IGraphEntity? root = default);
+
+    /// <summary>
+    /// Converts a Flax Actor into a procedural graph entity.
+    /// </summary>
+    /// <param name="actor">The source <see cref="Actor"/> to convert.</param>
+    /// <param name="lifecycleManager">The manager handling the creation and disposal of procedural entities.</param>
+    /// <param name="root">The root entity in the graph hierarchy, if applicable.</param>
+    /// <returns>The converted <see cref="IGraphEntity"/>.</returns>
+    IGraphEntity ToEntity(Actor actor, GraphLifecycleManager lifecycleManager, IGraphEntity? root = default);
+
+    /// <summary>
+    /// Converts a procedural graph entity into it's model representation.
+    /// </summary>
+    /// <param name="entity">The <see cref="IGraphEntity"/> to transform.</param>
+    /// <param name="lifecycleManager">The manager handling the creation and disposal of procedural entities.</param>
+    /// <returns>The converted model object.</returns>
+    object ToModel(IGraphEntity entity, GraphLifecycleManager lifecycleManager);
 }

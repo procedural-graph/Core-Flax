@@ -1,6 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using FlaxEditor.CustomEditors;
 using FlaxEditor.CustomEditors.Editors;
+using FlaxEditor.Scripting;
 using FlaxEngine;
 
 namespace ProceduralGraph.Interface;
@@ -31,12 +34,40 @@ public abstract class ProceduralActorEditor : GenericEditor
     /// <returns><c>true</c> if a corresponding entity was found in the lifecycle manager; otherwise, <c>false</c>.</returns>
     protected bool TryFindEntity([NotNullWhen(true)] out IGraphEntity? entity)
     {
-        if (LifecycleManager != null && LifecycleManager.TryFindEntity(Values.FirstOrDefault() as Actor, out entity))
+        if (LifecycleManager == null)
         {
-            return true;
+            entity = null;
+            return false;
         }
 
-        entity = default;
-        return false;
+        entity = LifecycleManager.FindEntities(Values.FirstOrDefault() as Actor).FirstOrDefault();
+        return entity is { };
+    }
+
+    /// <summary>
+    /// Creates a value container for accessing the collection of components associated with the specified graph entity.
+    /// </summary>
+    /// <param name="entity">
+    /// The graph entity whose component collection will be exposed by the value container. Cannot be <see langword="null"/>.
+    /// </param>
+    /// <returns>
+    /// A <see cref="CustomValueContainer"/> that provides access to the components of the specified entity as an
+    /// observable collection.
+    /// </returns>
+    protected static CustomValueContainer ComponentCollectionValueContainer(IGraphEntity entity)
+    {
+        ArgumentNullException.ThrowIfNull(entity, nameof(entity));
+
+        CollectionAttribute collectionAttribute = new()
+        {
+            Display = CollectionAttribute.DisplayType.Header
+        };
+
+        ScriptType type = new(typeof(ObservableCollection<IGraphComponent>));
+
+        return new CustomValueContainer(type, (object instance, int index) => entity.Components, attributes: [collectionAttribute])
+        {
+            entity.Components
+        };
     }
 }

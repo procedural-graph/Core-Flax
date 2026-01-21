@@ -12,16 +12,16 @@ using System.Reflection;
 namespace ProceduralGraph.Interface;
 
 /// <summary>
-/// GraphModelEditor class.
+/// GraphComponentEditor class.
 /// </summary>
-[CustomEditor(typeof(GraphComponent))]
-internal sealed class GraphModelEditor : GenericEditor
+[CustomEditor(typeof(IGraphComponent))]
+internal sealed class GraphComponentEditor : GenericEditor
 {
-    internal static ImmutableDictionary<string, Func<GraphComponent>> Factories { get; }
+    internal static ImmutableDictionary<string, Func<IGraphComponent>> Factories { get; }
 
     private ComboBox? _comboBox;
 
-    static GraphModelEditor()
+    static GraphComponentEditor()
     {
         Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
         Factories = assemblies.SelectMany(Types)
@@ -32,7 +32,7 @@ internal sealed class GraphModelEditor : GenericEditor
     public override void Initialize(LayoutElementsContainer layout)
     {
         _comboBox = layout.ComboBox("Type").ComboBox;
-        _comboBox.Items.AddRange(Factories.Keys);
+        _comboBox.Items.AddRange(Factories.Keys.Order());
        
         if (Values[0] is object target)
         {
@@ -66,13 +66,13 @@ internal sealed class GraphModelEditor : GenericEditor
         }
     }
 
-    private static Func<GraphComponent> MakeFactory(Type type)
+    private static Func<IGraphComponent> MakeFactory(Type type)
     {
         var ctor = type.GetConstructor(Type.EmptyTypes) ?? throw new ArgumentException($"Type '{type.Name}' must have a public parameterless constructor.", nameof(type));
 
         var newExpression = Expression.New(ctor);
-        var castExpression = Expression.Convert(newExpression, typeof(GraphComponent));
-        var lambda = Expression.Lambda<Func<GraphComponent>>(castExpression);
+        var castExpression = Expression.Convert(newExpression, typeof(IGraphComponent));
+        var lambda = Expression.Lambda<Func<IGraphComponent>>(castExpression);
 
         return lambda.Compile();
     }
@@ -89,6 +89,6 @@ internal sealed class GraphModelEditor : GenericEditor
 
     private static bool IsAssignableToT(Type type)
     {
-        return !type.IsAbstract && type.IsAssignableTo(typeof(GraphComponent));
+        return !type.IsAbstract && type.IsAssignableTo(typeof(IGraphComponent));
     }
 }

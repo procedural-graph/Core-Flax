@@ -1,41 +1,47 @@
-﻿using FlaxEditor.CustomEditors;
-using FlaxEngine;
+﻿using FlaxEngine;
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace ProceduralGraph;
 
 /// <summary>
-/// Represents a processing unit within the procedural graph.
+/// Defines the contract for a node within a graph structure, providing access to its parent, descendants, and
+/// serialization capabilities.
 /// </summary>
-public interface IGraphEntity : IDisposable
+public interface IGraphEntity : IGraphNode, IAsyncLifecycle
 {
     /// <summary>
-    /// Gets a cancellation token that is triggered when the entity is stopping or disposing.
+    /// Occurs when the state of the entity has changed.
     /// </summary>
-    CancellationToken StoppingToken { get; }
+    event Action? StateChanged;
 
     /// <summary>
-    /// Gets the configuration parameters for this entity.
+    /// Occurs when the regeneration process is about to begin.
     /// </summary>
-    ICollection<GraphComponent> Components { get; }
+    event Action? Regenerating;
 
     /// <summary>
-    /// Gets or the Actor associated with this entity.
+    /// Occurs after the entity has been regenerated.
     /// </summary>
-    Actor Actor { get; }
+    event Action? Regenerated;
 
     /// <summary>
-    /// Gets a <see cref="CustomValueContainer"/> of configurable values to display in the editor.
+    /// Gets the actor associated with this instance, if any.
     /// </summary>
-    CustomValueContainer ValueContainer { get; }
+    Actor? Actor { get; }
 
     /// <summary>
-    /// Requests that the entity stop any background processing immediately.
+    /// Gets the graph entities parented to this entity, indexed by their unique identifiers and associated actors.
     /// </summary>
-    /// <param name="cancellationToken">Token to monitor for the stopping process itself.</param>
-    /// <returns>A task representing the shutdown operation.</returns>
-    Task StopAsync(CancellationToken cancellationToken);
+    Map<Guid, IGraphEntity, Guid, Actor> Entities { get; }
+
+    /// <summary>
+    /// Gets the Flax Engine <see cref="FlaxEngine.Actor"/>s parented to this entity, indexed by their unique identifiers and associated entities.
+    /// </summary>
+    Map<Guid, Actor, Guid, IGraphEntity> Actors { get; }
+
+    /// <summary>
+    /// Gets the collection of components attached to this graph entity.
+    /// </summary>
+    ICollection<IGraphComponent> Components { get; }
 }

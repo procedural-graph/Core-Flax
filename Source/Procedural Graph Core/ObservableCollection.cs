@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 namespace ProceduralGraph;
 
-internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INotifyCollectionChanged, INotifyPropertyChanged where T : class, INotifyPropertyChanged
+internal sealed class ObservableCollection<T> : IList, IList<T>, IReadOnlyList<T>, ICloneable
 {
     public struct Enumerator : IEnumerator<T>
     {
@@ -23,7 +21,7 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
         }
 
         public readonly T Current => _current!;
-        readonly object IEnumerator.Current => Current;
+        readonly object IEnumerator.Current => _current!;
 
         public bool MoveNext()
         {
@@ -48,13 +46,10 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
     }
 
     private const int DefaultCapacity = 4;
-    private const string IndexerName = "Item[]";
 
-    public event NotifyCollectionChangedEventHandler? CollectionChanged;
-    public event PropertyChangedEventHandler? PropertyChanged;
+    internal event Action<T>? ItemAdded;
 
-    private readonly PropertyChangedEventHandler _itemPropertyChangedHandler;
-    public event PropertyChangedEventHandler? ItemPropertyChanged;
+    internal event Action<T>? ItemRemoved;
 
     private T[] _items;
 
@@ -72,23 +67,12 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
     public ObservableCollection()
     {
         _items = GC.AllocateUninitializedArray<T>(DefaultCapacity);
-        _itemPropertyChangedHandler = OnItemPropertyChanged;
     }
 
     public ObservableCollection(int capacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(capacity, nameof(capacity));
         _items = GC.AllocateUninitializedArray<T>(capacity);
-        _itemPropertyChangedHandler = OnItemPropertyChanged;
-    }
-
-    public ObservableCollection(IEnumerable<T> collection) : this()
-    {
-        ArgumentNullException.ThrowIfNull(collection);
-        foreach (var item in collection)
-        {
-            Add(item);
-        }
     }
 
     public T this[int index]
@@ -110,16 +94,22 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
                 return;
             }
 
-            if (originalItem != null)
+            try
             {
-                originalItem.PropertyChanged -= _itemPropertyChangedHandler;
+                if (originalItem is not null)
+                {
+                    ItemRemoved?.Invoke(originalItem);
+                }
+
+                if (value is not null)
+                {
+                    ItemAdded?.Invoke(value);
+                }
             }
-            value.PropertyChanged += _itemPropertyChangedHandler;
-
-            _items[index] = value;
-
-            OnCollectionChanged(NotifyCollectionChangedAction.Replace, value, originalItem, index);
-            OnPropertyChanged(IndexerName);
+            finally
+            {
+                _items[index] = value;
+            }
         }
     }
 
@@ -140,14 +130,10 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
             EnsureCapacity(Count + 1);
         }
 
-        item.PropertyChanged += _itemPropertyChangedHandler;
-
         int index = Count++;
         _items[index] = item;
 
-        OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
+        ItemAdded?.Invoke(item);
     }
 
     public int Add(object? value)
@@ -176,14 +162,10 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
             Array.Copy(_items, index, _items, index + 1, Count - index);
         }
 
-        item.PropertyChanged += _itemPropertyChangedHandler;
-
         _items[index] = item;
         Count++;
 
-        OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
+        ItemAdded?.Invoke(item);
     }
 
     public void Insert(int index, object? value)
@@ -193,7 +175,7 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
             Insert(index, item);
             return;
         }
-        
+
         throw new ArgumentException($"Value must be of type {typeof(T).Name}", nameof(value));
     }
 
@@ -223,11 +205,6 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
 
         T item = _items[index];
 
-        if (item is not null)
-        {
-            item.PropertyChanged -= _itemPropertyChangedHandler;
-        }
-
         Count--;
         if (index < Count)
         {
@@ -239,9 +216,7 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
             _items[Count] = default!;
         }
 
-        OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
+        ItemRemoved?.Invoke(item);
     }
 
     public void Clear()
@@ -255,7 +230,7 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
                 continue;
             }
 
-            _items[i].PropertyChanged -= _itemPropertyChangedHandler;
+            ItemRemoved?.Invoke(_items[i]);
         }
 
         if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
@@ -264,10 +239,6 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
         }
 
         Count = 0;
-
-        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
     }
 
     /// <summary>
@@ -293,7 +264,7 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
                     continue;
                 }
 
-                _items[i].PropertyChanged -= _itemPropertyChangedHandler;
+                ItemRemoved?.Invoke(_items[i]);
             }
 
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
@@ -302,19 +273,11 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
             }
 
             Count = newSize;
-
-            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(IndexerName);
         }
         else
         {
             EnsureCapacity(newSize);
             Count = newSize;
-
-            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(IndexerName);
         }
     }
 
@@ -362,48 +325,23 @@ internal sealed class ObservableCollection<T> : IList, IList<T>, ICloneable, INo
     IEnumerator<T> IEnumerable<T>.GetEnumerator() => new Enumerator(this);
     IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
 
-    private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        ItemPropertyChanged?.Invoke(sender, e);
-    }
-
-    private void OnCollectionChanged(NotifyCollectionChangedAction action, object? item, int index)
-    {
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, index));
-    }
-
-    private void OnCollectionChanged(NotifyCollectionChangedAction action, object? newItem, object? oldItem, int index)
-    {
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, newItem, oldItem, index));
-    }
-
-    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
-    {
-        CollectionChanged?.Invoke(this, e);
-    }
-
-    private void OnPropertyChanged(string propertyName)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
     private void EnsureCapacity(int min)
     {
         if (_items.Length >= min)
-        { 
-            return; 
+        {
+            return;
         }
 
         int newCapacity = _items.Length == 0 ? DefaultCapacity : _items.Length * 2;
 
-        if ((uint)newCapacity > Array.MaxLength) 
-        { 
-            newCapacity = Array.MaxLength; 
+        if ((uint)newCapacity > Array.MaxLength)
+        {
+            newCapacity = Array.MaxLength;
         }
 
-        if (newCapacity < min) 
-        { 
-            newCapacity = min; 
+        if (newCapacity < min)
+        {
+            newCapacity = min;
         }
 
         Array.Resize(ref _items, newCapacity);

@@ -1,19 +1,29 @@
 ﻿using FlaxEditor;
 using FlaxEngine;
+using ProceduralGraph.Tree;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
+using System.Linq;
 using System.Threading;
 
 namespace ProceduralGraph;
 
 /// <summary>
-/// GraphLifecycleManager EditorPlugin
+/// Manages the lifecycle of procedural graph entities within the Flax Engine editor, handling their creation,
+/// execution, and disposal in response to scene and actor events.
 /// </summary>
 public sealed class GraphLifecycleManager : EditorPlugin
 {
-    private readonly Dictionary<Scene, GraphInstance> _graphs = [];
+    private ref struct EntityLocator : IEntityVisitor
+    {
+        public Guid TargetID { readonly get; init; }
+
+        public ref Index<Actor, IGraphEntity>? Result;
+
+        public bool Visit(IGraphEntity entity) => entity.Actors.TryGetValue(TargetID, out Result);
+    }
+
+    private readonly Dictionary<Scene, IGraphEntity> _graphs;
 
     private CancellationTokenSource? _stoppingCts;
     /// <summary>
@@ -21,11 +31,11 @@ public sealed class GraphLifecycleManager : EditorPlugin
     /// </summary>
     public CancellationToken StoppingToken => _stoppingCts!.Token;
 
-    private readonly List<IGraphConverter> _converters = [];
+    private readonly List<IGraphConverter> _converters;
     /// <summary>
     /// Gets a collection of graph converters which facilitate the transformation of Flax Actors into entities.
     /// </summary>
-    public ICollection<IGraphConverter> Converters => _converters;
+    public IReadOnlyList<IGraphConverter> Converters => _converters;
 
     /// <summary>
     /// Initializes a new instance of <see cref="GraphLifecycleManager"/>.
@@ -40,9 +50,9 @@ public sealed class GraphLifecycleManager : EditorPlugin
             Author = "William Brocklesby",
             AuthorUrl = "https://william-brocklesby.com",
             Category = "Procedural Graph",
-            Description = "Procedural Graph is a Flax Engine Editor Plugin designed to manage and execute procedural graph generation in real-time. It serves as the runtime execution layer for the Procedural Graph system, handling the lifecycle of graph nodes, listening for scene changes, and managing asynchronous generation tasks to ensure editor responsiveness.",
+            Description = "The runtime execution layer for the Procedural Graph system. It listens for scene and actor changes, manages asynchronous graph generation tasks to maintain editor responsiveness, and coordinates the transformation of Flax Actors into procedural graph entities.",
             RepositoryUrl = "https://github.com/will11600/Procedural-Graph-Client.git",
-            Version = new(1, 0, 0)
+            Version = new(2, 0, 0)
         };
     }
 
@@ -52,14 +62,8 @@ public sealed class GraphLifecycleManager : EditorPlugin
         try
         {
             _stoppingCts = new CancellationTokenSource();
-
-            Level.SceneSaving += OnSceneSaving;
-
             Level.SceneLoaded += OnSceneLoaded;
-            Level.SceneUnloaded += OnSceneUnloaded;
-
-            Level.ActorSpawned += OnActorSpawned;
-            Level.ActorDeleted += OnActorDeleted;
+            Level.SceneUnloading += OnSceneUnloading;
         }
         finally
         {
@@ -76,101 +80,77 @@ public sealed class GraphLifecycleManager : EditorPlugin
         }
         finally
         {
-            Level.SceneSaving -= OnSceneSaving;
-
             Level.SceneLoaded -= OnSceneLoaded;
-            Level.SceneUnloaded -= OnSceneUnloaded;
-
-            Level.ActorSpawned -= OnActorSpawned;
-            Level.ActorDeleted -= OnActorDeleted;
+            Level.SceneUnloading -= OnSceneUnloading;
 
             _stoppingCts?.Dispose();
 
-            foreach (GraphInstance graph in _graphs.Values)
+            foreach (IDisposable disposable in _graphs.Values.OfType<IDisposable>())
             {
-                graph.Dispose();
+                disposable.Dispose();
             }
 
             base.Deinitialize();
         }
     }
 
-    internal bool TryFindEntity(Actor? actor, [NotNullWhen(true)] out IGraphEntity? entity)
+    /// <summary>
+    /// Searches for graph entities associated with the specified actor within all available graphs.
+    /// </summary>
+    /// <param name="actor">The actor whose associated entities are to be found. If <paramref name="actor"/> is <see langword="null"/>, the
+    /// method returns an empty collection.</param>
+    /// <returns>An enumerable collection of <see cref="IGraphEntity"/> objects associated with the specified actor. Returns an
+    /// empty collection if no matching entities are found or if <paramref name="actor"/> is <see langword="null"/>.</returns>
+    public IEnumerable<IGraphEntity> FindEntities(Actor? actor)
     {
-        if (actor != null && _graphs.TryGetValue(actor.Scene, out GraphInstance? graph))
+        if (actor == null || !_graphs.TryGetValue(actor.Scene, out IGraphEntity? root))
         {
-            return graph.TryGetValue(actor, out entity);
+            return [];
         }
 
-        entity = default;
-        return false;
-    }
-
-    private void OnActorSpawned(Actor actor)
-    {
-        Scene scene = actor.Scene;
-        ref GraphInstance? sceneInfo = ref CollectionsMarshal.GetValueRefOrAddDefault(_graphs, scene, out bool exists);
-        if (!exists)
+        Index<Actor, IGraphEntity>? result = null;
+        EntityLocator locator = new()
         {
-            sceneInfo = new GraphInstance(scene, this);
-        }
+            TargetID = actor.ID,
+            Result = ref result
+        };
 
-        sceneInfo!.Add(actor);
-    }
-
-    private async void OnActorDeleted(Actor actor)
-    {
-        if (!_graphs.TryGetValue(actor.Scene, out GraphInstance? graph) || !graph.Remove(actor, out IGraphEntity? entity))
+        foreach (IGraphEntity graph in _graphs.Values)
         {
-            return;
+            if (graph.DepthFirstSearch(in locator, out _))
+            {
+                return result!;
+            }
         }
 
-        try
-        {
-            await entity.StopAsync(_stoppingCts!.Token);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogException(ex, this);
-        }
-        finally
-        {
-            entity.Dispose();
-        }
+        return [];
     }
 
     private void OnSceneLoaded(Scene scene, Guid guid)
     {
-        GraphInstance sceneInfo = new(scene, this);
-        _graphs.Add(scene, sceneInfo);
+        IGraphConverter converter = _converters.Find(scene);
+        IGraphEntity graph = converter.ToEntity(scene, this, null);
+        _graphs.Add(scene, graph);
     }
 
-    private async void OnSceneUnloaded(Scene scene, Guid guid)
+    private async void OnSceneUnloading(Scene scene, Guid guid)
     {
-        if (!_graphs.Remove(scene, out GraphInstance? graph))
+        if (!_graphs.Remove(scene, out IGraphEntity? graph))
         {
             return;
         }
 
         try
         {
-            await graph.StopAsync(_stoppingCts!.Token);
+            await graph.StopAsync(StoppingToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            Debug.LogException(ex, this);
+            DebugUtils.LogException(ex);
         }
         finally
         {
             graph.Dispose();
-        }
-    }
-
-    private void OnSceneSaving(Scene scene, Guid guid)
-    {
-        if (_graphs.TryGetValue(scene, out GraphInstance? graph))
-        {
-            graph.Save();        
         }
     }
 }

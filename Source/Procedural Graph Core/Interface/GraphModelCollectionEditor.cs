@@ -7,16 +7,16 @@ namespace ProceduralGraph.Interface;
 /// <summary>
 /// GraphModelCollectionEditor class.
 /// </summary>
-[CustomEditor(typeof(ObservableCollection<GraphComponent>))]
+[CustomEditor(typeof(ObservableCollection<IGraphComponent>))]
 internal sealed class GraphModelCollectionEditor : ListEditor
 {
-    private ObservableCollection<GraphComponent> Target => (Values[0] as ObservableCollection<GraphComponent>)!;
+    private ObservableCollection<IGraphComponent> Target => (Values[0] as ObservableCollection<IGraphComponent>)!;
 
     public override int Count => Target.Count;
 
     protected override IList Allocate(int size)
     {
-        return new ObservableCollection<GraphComponent>(size);
+        return new ObservableCollection<IGraphComponent>(size);
     }
 
     protected override IList CloneValues()

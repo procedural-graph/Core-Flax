@@ -13,7 +13,8 @@ namespace ProceduralGraph.Tree.Entities;
 /// Represents an abstract base class for entities within a generative graph that support asynchronous regeneration and
 /// component management.
 /// </summary>
-public abstract class GenerativeGraphEntity : GraphEntity
+/// <inheritdoc/>
+public abstract class GenerativeGraphEntity<T> : GraphEntity<T> where T : Actor
 {
     private bool _isDirty;
     private readonly SemaphoreSlim _semaphore;

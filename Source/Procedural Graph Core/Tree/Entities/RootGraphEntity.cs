@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace ProceduralGraph.Tree.Entities;
 
-internal sealed class RootGraphEntity(Guid id, Scene scene, GraphLifecycleManager lifecycleManager, string path, IGraphConverter converter) : GraphEntity(lifecycleManager)
+internal sealed class RootGraphEntity(Guid id, Scene scene, GraphLifecycleManager lifecycleManager, string path, IGraphConverter converter) : GraphEntity<Scene>(lifecycleManager)
 {
     private readonly struct EntityVisitor : IEntityVisitor
     {
@@ -27,7 +27,7 @@ internal sealed class RootGraphEntity(Guid id, Scene scene, GraphLifecycleManage
 
     private readonly IGraphConverter _converter = converter ?? throw new ArgumentNullException(nameof(converter));
 
-    public override Actor? Actor { get; } = scene ?? throw new ArgumentNullException(nameof(scene));
+    public override Scene Actor { get; } = scene ?? throw new ArgumentNullException(nameof(scene));
 
     public override ICollection<IGraphComponent> Components => [];
 
@@ -91,7 +91,7 @@ internal sealed class RootGraphEntity(Guid id, Scene scene, GraphLifecycleManage
 
     private void OnDescendantRegenerated()
     {
-        Editor.Instance.Scene.MarkSceneEdited((Scene)Actor!);
+        Editor.Instance.Scene.MarkSceneEdited(Actor);
     }
 
     private static bool TryFindParent(Actor actor, IGraphEntity entity, [NotNullWhen(true)] out IGraphEntity? result)

@@ -2,19 +2,17 @@
 using Newtonsoft.Json;
 using System;
 
-namespace ProceduralGraph.Tree.Entities;
+namespace ProceduralGraph.Hierarchy;
 
 internal sealed record GraphRootModel : IGraphEntityModel
 {
     [Serialize, ShowInEditor]
-    public Guid EntityID { get; init; }
-    Guid IGraphEntityModel.EntityID => EntityID;
+    public Guid ID { get; init; }
 
     [Serialize, ShowInEditor]
     public Guid SceneID { get; init; }
-    Guid IGraphNodeModel.ParentID => SceneID;
+    Guid IGraphModel.ParentID => SceneID;
 
     [Serialize, ShowInEditor, JsonProperty(TypeNameHandling = TypeNameHandling.Auto)]
-    public IGraphEntityModel[] Children { get; init; } = [];
-
+    public IGraphModel[] Children { get; init; } = [];
 }

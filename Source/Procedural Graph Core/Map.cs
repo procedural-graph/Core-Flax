@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿#nullable enable
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -44,7 +46,7 @@ public abstract class Map<TPrimaryKey, TPrimaryValue, TForeignKey, TForeignValue
     /// Gets the collection of foreign indices, mapping each foreign key to its corresponding index of foreign and
     /// primary values.
     /// </summary>
-    protected abstract Dictionary<TPrimaryKey, Index<TForeignValue, TPrimaryValue>> ForeignIndices { get; }
+    protected abstract Dictionary<TForeignKey, Index<TForeignValue, TPrimaryValue>> ForeignIndices { get; }
 
     /// <summary>
     /// Gets the index associated with the specified primary key.
@@ -99,10 +101,53 @@ public abstract class Map<TPrimaryKey, TPrimaryValue, TForeignKey, TForeignValue
     /// <returns>An <see cref="Index{TForeignKey, TPrimaryKey}"/> instance associated with the specified foreign value.</returns>
     protected abstract Index<TForeignValue, TPrimaryValue> CreateForeignIndex(TForeignValue key);
 
-    /// <inheritdoc/>
-    public bool ContainsKey(TPrimaryKey key)
+    /// <summary>
+    /// Determines whether the collection contains an entry with the specified primary key.
+    /// </summary>
+    /// <param name="key">The primary key to locate in the collection.</param>
+    /// <returns><see langword="true"/> if an entry with the specified primary key exists in the collection; otherwise, <see langword="false"/>.</returns>
+    public bool ContainsPrimaryKey(TPrimaryKey key)
     {
         return PrimaryIndices.ContainsKey(key);
+    }
+
+    /// <summary>
+    /// Determines whether the collection contains an entry with the specified foreign key.
+    /// </summary>
+    /// <param name="key">The foreign key to locate in the collection.</param>
+    /// <returns><see langword="true"/> if an entry with the specified foreign key exists in the collection; otherwise, <see langword="false"/>.</returns>
+    public bool ContainsForeignKey(TForeignKey key)
+    {
+        return ForeignIndices.ContainsKey(key);
+    }
+
+    /// <summary>
+    /// Determines whether the collection contains an entry with the specified primary key.
+    /// </summary>
+    /// <param name="value">The primary key to locate in the collection. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if an entry with the specified primary key exists in the collection; otherwise, <see langword="false"/>.</returns>
+    public bool ContainsPrimaryKey(TPrimaryValue value)
+    {
+        ArgumentNullException.ThrowIfNull(value, nameof(value));
+        TPrimaryKey key = GetPrimaryKey(value);
+        return ContainsPrimaryKey(key);
+    }
+
+    /// <summary>
+    /// Determines whether the collection contains an entry with the specified foreign key.
+    /// </summary>
+    /// <param name="value">The foreign key to locate in the collection. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if an entry with the specified foreign key exists in the collection; otherwise, <see langword="false"/>.</returns>
+    public bool ContainsForeignKey(TForeignValue value)
+    {
+        ArgumentNullException.ThrowIfNull(value, nameof(value));
+        TForeignKey key = GetForeignKey(value);
+        return ForeignIndices.ContainsKey(key);
+    }
+
+    bool IReadOnlyDictionary<TPrimaryKey, Index<TPrimaryValue, TForeignValue>>.ContainsKey(TPrimaryKey key)
+    {
+        return ContainsPrimaryKey(key);
     }
 
     /// <inheritdoc/>
@@ -130,6 +175,31 @@ public abstract class Map<TPrimaryKey, TPrimaryValue, TForeignKey, TForeignValue
     {
         TPrimaryKey key = GetPrimaryKey(item);
         return Add(key, item, out _);
+    }
+
+    /// <summary>
+    /// Gets the existing index associated with the specified foreign value, or creates and adds a new index if one does
+    /// not already exist.
+    /// </summary>
+    /// <param name="item">The foreign value for which to retrieve or create an associated index. Cannot be <see langword="null"/>.</param>
+    /// <param name="exists">
+    /// When this method returns, contains <see langword="true"/> if an index for the specified foreign value already
+    /// existed; otherwise, <see langword="false"/>.
+    /// </param>
+    /// <returns>The index associated with the specified foreign value. If no index existed, a new one is created and returned.</returns>
+    public Index<TForeignValue, TPrimaryValue> GetOrAdd(TForeignValue item, out bool exists)
+    {
+        ArgumentNullException.ThrowIfNull(item, nameof(item));
+
+        TForeignKey foreignKey = GetForeignKey(item);
+        ref Index<TForeignValue, TPrimaryValue>? foreignIndex = ref CollectionsMarshal.GetValueRefOrAddDefault(ForeignIndices, foreignKey, out exists);
+
+        if (!exists)
+        {
+            foreignIndex = CreateForeignIndex(item);
+        }
+
+        return foreignIndex!;
     }
 
     private bool Add(TPrimaryKey key, TPrimaryValue value, [NotNullWhen(true)] out Index<TPrimaryValue, TForeignValue>? result)

@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using FlaxEditor.CustomEditors;
@@ -30,18 +31,18 @@ public abstract class ProceduralActorEditor : GenericEditor
     /// <summary>
     /// Attempts to find the procedural graph entity associated with the actor currently being edited.
     /// </summary>
-    /// <param name="entity">When this method returns, contains the associated <see cref="IGraphEntity"/> if found; otherwise, null.</param>
-    /// <returns><c>true</c> if a corresponding entity was found in the lifecycle manager; otherwise, <c>false</c>.</returns>
+    /// <param name="entity">When this method returns, contains the associated <see cref="IGraphEntity"/> if found; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if a corresponding entity was found in the lifecycle manager; otherwise, <see langword="false"/>.</returns>
     protected bool TryFindEntity([NotNullWhen(true)] out IGraphEntity? entity)
     {
-        if (LifecycleManager == null)
+        if (LifecycleManager is { } && LifecycleManager.TryFind(Values.FirstOrDefault() as Actor, out Index<Actor, IGraphEntity>? index))
         {
-            entity = null;
-            return false;
+            entity = index.FirstOrDefault();
+            return entity is { };
         }
 
-        entity = LifecycleManager.FindEntities(Values.FirstOrDefault() as Actor).FirstOrDefault();
-        return entity is { };
+        entity = null;
+        return false;
     }
 
     /// <summary>

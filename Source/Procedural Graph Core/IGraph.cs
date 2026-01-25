@@ -1,19 +1,15 @@
-﻿using System;
+﻿#nullable enable
+using System.Collections.Generic;
 
 namespace ProceduralGraph;
 
 /// <summary>
 /// Represents a node within the procedural graph.
 /// </summary>
-public interface IGraphNode
+public interface IGraph : IReadOnlyCollection<IGraph>
 {
-    /// <summary>
-    /// Gets the unique identifier for this instance.
-    /// </summary>
-    Guid ID { get; }
-
     /// <summary>
     /// Gets the parent node of this instance, if any.
     /// </summary>
-    IGraphEntity? Parent { get; }
+    IGraph? Parent { get; }
 }

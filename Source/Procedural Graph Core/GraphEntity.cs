@@ -1,12 +1,14 @@
-﻿using FlaxEngine;
+﻿#nullable enable
+using FlaxEngine;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ProceduralGraph.Tree.Entities;
+namespace ProceduralGraph;
 
 /// <summary>
 /// Represents a base class for entities within a graph structure, providing common lifecycle management, hierarchical
@@ -15,35 +17,35 @@ namespace ProceduralGraph.Tree.Entities;
 /// <typeparam name="T">The type of actor associated with this graph entity.</typeparam>
 public abstract class GraphEntity<T> : IGraphEntity where T : Actor
 {
-    private sealed class EntityCollection(GraphEntity<T> entity) : Map<Guid, IGraphEntity, Guid, T>()
+    private sealed class EntityCollection(GraphEntity<T> entity) : Map<Guid, IGraphEntity, Guid, Actor>()
     {
         private readonly GraphEntity<T> _entity = entity ?? throw new ArgumentNullException(nameof(entity));
 
-        protected override Dictionary<Guid, Index<IGraphEntity, T>> PrimaryIndices => _entity._entities;
-        protected override Dictionary<Guid, Index<T, IGraphEntity>> ForeignIndices => _entity._actors;
+        protected override Dictionary<Guid, Index<IGraphEntity, Actor>> PrimaryIndices => _entity._entities;
+        protected override Dictionary<Guid, Index<Actor, IGraphEntity>> ForeignIndices => _entity._actors;
 
-        protected override Index<T, IGraphEntity> CreateForeignIndex(T key) => new ActorIndex(key, _entity);
-        protected override Index<IGraphEntity, T> CreatePrimaryIndex(IGraphEntity value) => new EntityIndex(value, _entity);
+        protected override Index<Actor, IGraphEntity> CreateForeignIndex(Actor key) => new ActorIndex(key, _entity);
+        protected override Index<IGraphEntity, Actor> CreatePrimaryIndex(IGraphEntity value) => new EntityIndex(value, _entity);
 
-        protected override Guid GetForeignKey(T value) => value.ID;
+        protected override Guid GetForeignKey(Actor value) => value.ID;
         protected override Guid GetPrimaryKey(IGraphEntity value) => value.ID;
     }
 
-    private sealed class ActorCollection(GraphEntity<T> entity) : Map<Guid, T, Guid, IGraphEntity>()
+    private sealed class ActorCollection(GraphEntity<T> entity) : Map<Guid, Actor, Guid, IGraphEntity>()
     {
         private readonly GraphEntity<T> _entity = entity ?? throw new ArgumentNullException(nameof(entity));
 
-        protected override Dictionary<Guid, Index<T, IGraphEntity>> PrimaryIndices => _entity._actors;
-        protected override Dictionary<Guid, Index<IGraphEntity, T>> ForeignIndices => _entity._entities;
+        protected override Dictionary<Guid, Index<Actor, IGraphEntity>> PrimaryIndices => _entity._actors;
+        protected override Dictionary<Guid, Index<IGraphEntity, Actor>> ForeignIndices => _entity._entities;
 
-        protected override Index<IGraphEntity, T> CreateForeignIndex(IGraphEntity key) => new EntityIndex(key, _entity);
-        protected override Index<T, IGraphEntity> CreatePrimaryIndex(T value) => new ActorIndex(value, _entity);
+        protected override Index<IGraphEntity, Actor> CreateForeignIndex(IGraphEntity key) => new EntityIndex(key, _entity);
+        protected override Index<Actor, IGraphEntity> CreatePrimaryIndex(Actor value) => new ActorIndex(value, _entity);
 
         protected override Guid GetForeignKey(IGraphEntity value) => value.ID;
-        protected override Guid GetPrimaryKey(T value) => value.ID;
+        protected override Guid GetPrimaryKey(Actor value) => value.ID;
     }
 
-    private sealed class EntityIndex(IGraphEntity entity, GraphEntity<T> collection) : Index<IGraphEntity, T>(entity)
+    private sealed class EntityIndex(IGraphEntity entity, GraphEntity<T> collection) : Index<IGraphEntity, Actor>(entity)
     {
         private readonly GraphEntity<T> _collection = collection ?? throw new ArgumentNullException(nameof(collection));
 
@@ -65,9 +67,9 @@ public abstract class GraphEntity<T> : IGraphEntity where T : Actor
             }
         }
 
-        protected override Index<T, IGraphEntity> GetOrAddIndex(T actor)
+        protected override Index<Actor, IGraphEntity> GetOrAddIndex(Actor actor)
         {
-            ref Index<T, IGraphEntity>? index = ref CollectionsMarshal.GetValueRefOrAddDefault(_collection._actors, actor.ID, out bool exists);
+            ref Index<Actor, IGraphEntity>? index = ref CollectionsMarshal.GetValueRefOrAddDefault(_collection._actors, actor.ID, out bool exists);
 
             if (!exists)
             {
@@ -78,15 +80,15 @@ public abstract class GraphEntity<T> : IGraphEntity where T : Actor
         }
     }
 
-    private sealed class ActorIndex(T actor, GraphEntity<T> collection) : Index<T, IGraphEntity>(actor)
+    private sealed class ActorIndex(Actor actor, GraphEntity<T> collection) : Index<Actor, IGraphEntity>(actor)
     {
         private readonly GraphEntity<T> _collection = collection ?? throw new ArgumentNullException(nameof(collection));
 
         protected override void Destroy() => _collection._actors.Remove(Key.ID);
 
-        protected override Index<IGraphEntity, T> GetOrAddIndex(IGraphEntity entity)
+        protected override Index<IGraphEntity, Actor> GetOrAddIndex(IGraphEntity entity)
         {
-            ref Index<IGraphEntity, T>? index = ref CollectionsMarshal.GetValueRefOrAddDefault(_collection._entities, entity.ID, out bool exists);
+            ref Index<IGraphEntity, Actor>? index = ref CollectionsMarshal.GetValueRefOrAddDefault(_collection._entities, entity.ID, out bool exists);
 
             if (!exists)
             {
@@ -98,29 +100,23 @@ public abstract class GraphEntity<T> : IGraphEntity where T : Actor
         }
     }
 
-    private readonly Dictionary<Guid, Index<IGraphEntity, T>> _entities;
+    private readonly Dictionary<Guid, Index<IGraphEntity, Actor>> _entities;
     /// <summary>
     /// Gets the collection of graph entities managed by this instance.
     /// </summary>
-    public Map<Guid, IGraphEntity, Guid, T> Entities { get; }
-    Map<Guid, IGraphEntity, Guid, Actor> IGraphEntity.Entities => Entities as Map<Guid, IGraphEntity, Guid, Actor>;
+    public Map<Guid, IGraphEntity, Guid, Actor> Entities { get; }
 
-    private readonly Dictionary<Guid, Index<T, IGraphEntity>> _actors;
+    private readonly Dictionary<Guid, Index<Actor, IGraphEntity>> _actors;
     /// <summary>
     /// Gets the collection of actors managed by this instance.
     /// </summary>
-    public Map<Guid, T, Guid, IGraphEntity> Actors { get; }
-    Map<Guid, Actor, Guid, IGraphEntity> IGraphEntity.Actors => Actors as Map<Guid, Actor, Guid, IGraphEntity>;
+    public Map<Guid, Actor, Guid, IGraphEntity> Actors { get; }
 
     private volatile bool _disposed;
     /// <summary>
     /// Gets a value indicating whether this instance has been disposed.
     /// </summary>
     protected bool Disposed => _disposed;
-
-    /// <inheritdoc/>
-    public abstract T? Actor { get; }
-    Actor IGraphEntity.Actor => Actor;
 
     /// <inheritdoc/>
     public abstract ICollection<IGraphComponent> Components { get; }
@@ -151,7 +147,7 @@ public abstract class GraphEntity<T> : IGraphEntity where T : Actor
     public event Action? Regenerated;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="GraphEntity"/> class with the specified <see cref="GraphLifecycleManager"/>.
+    /// Initializes a new instance of the <see cref="GraphEntity{T}"/> class with the specified <see cref="GraphLifecycleManager"/>.
     /// </summary>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="lifecycleManager"/> is <see langword="null"/>.</exception>
     /// <param name="lifecycleManager">
@@ -240,7 +236,7 @@ public abstract class GraphEntity<T> : IGraphEntity where T : Actor
         }
         finally
         {
-            Dictionary<Guid, Index<IGraphEntity, T>>.ValueCollection entityValues = _entities.Values;
+            Dictionary<Guid, Index<IGraphEntity, Actor>>.ValueCollection entityValues = _entities.Values;
             if (entityValues.Count > 0)
             {
                 IDisposable[] disposableEntities = [.. entityValues.OfType<IDisposable>()];
@@ -292,5 +288,74 @@ public abstract class GraphEntity<T> : IGraphEntity where T : Actor
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
+    }
+
+    /// <inheritdoc/>
+    public bool TryFind([NotNullWhen(true)] Actor? actor, [NotNullWhen(true)] out Index<Actor, IGraphEntity>? result)
+    {
+        if (actor == null)
+        {
+            result = null;
+            return false;
+        }
+
+        if (TryFindEntity(this, actor, out result))
+        {
+            return true;
+        }
+
+        int entityCount = Entities.Count;
+        if (entityCount > 0)
+        {
+            Queue<IGraphEntity> entities = new(entityCount);
+            foreach (Index<IGraphEntity, Actor> index in _entities.Values)
+            {
+                entities.Enqueue(index.Key);
+            }
+
+            while (entities.TryDequeue(out IGraphEntity? entity))
+            {
+                if (TryFindEntities(entity, actor, entities, out result))
+                {
+                    return true;
+                }
+            }
+        }
+
+        result = null;
+        return false;
+    }
+
+    private static bool TryFindEntities(IGraphEntity entity, Actor actor, Queue<IGraphEntity> entities, [NotNullWhen(true)] out Index<Actor, IGraphEntity>? result)
+    {
+        if (TryFindEntity(entity, actor, out result))
+        {
+            return true;
+        }
+
+        int entityCount = entity.Entities.Count;
+        if (entityCount > 0)
+        {
+            entities.EnsureCapacity(entities.Count + entityCount);
+            foreach (Index<IGraphEntity, Actor> index in entity.Entities.Values)
+            {
+                entities.Enqueue(index.Key);
+            }
+        }
+
+        result = null;
+        return false;
+    }
+
+    private static bool TryFindEntity(IGraphEntity entity, Actor actor, [NotNullWhen(true)] out Index<Actor, IGraphEntity>? result)
+    {
+        if (entity.Actors.TryGetValue(actor.ID, out Index<Actor, IGraphEntity>? index))
+        {
+            result = index;
+            return true;
+        }
+
+        result = null;
+        return false;
     }
 }

@@ -1,8 +1,9 @@
-﻿using FlaxEditor;
+﻿#nullable enable
+using FlaxEditor;
 using FlaxEngine;
-using ProceduralGraph.Tree;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 
@@ -14,15 +15,6 @@ namespace ProceduralGraph;
 /// </summary>
 public sealed class GraphLifecycleManager : EditorPlugin
 {
-    private ref struct EntityLocator : IEntityVisitor
-    {
-        public Guid TargetID { readonly get; init; }
-
-        public ref Index<Actor, IGraphEntity>? Result;
-
-        public bool Visit(IGraphEntity entity) => entity.Actors.TryGetValue(TargetID, out Result);
-    }
-
     private readonly Dictionary<Scene, IGraphEntity> _graphs;
 
     private CancellationTokenSource? _stoppingCts;
@@ -35,7 +27,7 @@ public sealed class GraphLifecycleManager : EditorPlugin
     /// <summary>
     /// Gets a collection of graph converters which facilitate the transformation of Flax Actors into entities.
     /// </summary>
-    public IReadOnlyList<IGraphConverter> Converters => _converters;
+    public ICollection<IGraphConverter> Converters => _converters;
 
     /// <summary>
     /// Initializes a new instance of <see cref="GraphLifecycleManager"/>.
@@ -95,41 +87,28 @@ public sealed class GraphLifecycleManager : EditorPlugin
     }
 
     /// <summary>
-    /// Searches for graph entities associated with the specified actor within all available graphs.
+    /// Attempts to locate the specified actor within the graph and retrieves its corresponding index if found.
     /// </summary>
-    /// <param name="actor">The actor whose associated entities are to be found. If <paramref name="actor"/> is <see langword="null"/>, the
-    /// method returns an empty collection.</param>
-    /// <returns>An enumerable collection of <see cref="IGraphEntity"/> objects associated with the specified actor. Returns an
-    /// empty collection if no matching entities are found or if <paramref name="actor"/> is <see langword="null"/>.</returns>
-    public IEnumerable<IGraphEntity> FindEntities(Actor? actor)
+    /// <param name="actor">The actor to locate within the graph.</param>
+    /// <param name="result">
+    /// When this method returns, contains the index of the specified actor if found; otherwise, <see langword="null"/>. This parameter is
+    /// passed uninitialized.</param>
+    /// <returns><see langword="true"/> if the actor was found and the corresponding index is returned in result; otherwise, <see langword="false"/>.</returns>
+    public bool TryFind([NotNullWhen(true)] Actor? actor, [NotNullWhen(true)] out Index<Actor, IGraphEntity>? result)
     {
-        if (actor == null || !_graphs.TryGetValue(actor.Scene, out IGraphEntity? root))
+        if (actor != null && _graphs.TryGetValue(actor.Scene, out IGraphEntity? root))
         {
-            return [];
+            return root.TryFind(actor, out result);
         }
 
-        Index<Actor, IGraphEntity>? result = null;
-        EntityLocator locator = new()
-        {
-            TargetID = actor.ID,
-            Result = ref result
-        };
-
-        foreach (IGraphEntity graph in _graphs.Values)
-        {
-            if (graph.DepthFirstSearch(in locator, out _))
-            {
-                return result!;
-            }
-        }
-
-        return [];
+        result = null;
+        return false;
     }
 
     private void OnSceneLoaded(Scene scene, Guid guid)
     {
         IGraphConverter converter = _converters.Find(scene);
-        IGraphEntity graph = converter.ToEntity(scene, this, null);
+        IGraphEntity graph = (IGraphEntity)converter.ToGraph(scene, this, null);
         _graphs.Add(scene, graph);
     }
 

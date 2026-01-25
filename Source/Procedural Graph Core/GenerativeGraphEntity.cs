@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 using FlaxEditor;
 using FlaxEngine;
 
-namespace ProceduralGraph.Tree.Entities;
+namespace ProceduralGraph;
 
 /// <summary>
 /// Represents an abstract base class for entities within a generative graph that support asynchronous regeneration and
@@ -36,11 +37,8 @@ public abstract class GenerativeGraphEntity<T> : GraphEntity<T> where T : Actor
     /// <inheritdoc/>
     public abstract override Guid ID { get; }
 
-    /// <inheritdoc/>
-    public abstract override Actor? Actor { get; }
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="GenerativeGraphEntity"/> class with the specified lifecycle manager.
+    /// Initializes a new instance of the <see cref="GenerativeGraphEntity{T}"/> class with the specified lifecycle manager.
     /// </summary>
     /// <param name="lifecycleManager">The lifecycle manager responsible for managing the state transitions of this entity.</param>
     public GenerativeGraphEntity(GraphLifecycleManager lifecycleManager) : base(lifecycleManager)

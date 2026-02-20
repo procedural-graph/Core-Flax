@@ -53,3 +53,6 @@ _ReSharper*/
 
 # Ignore Nuget packages folder
 packages/
+
+# Ignore source-available assemblies (generated locally)
+/Content/Assemblies/Public/*.*

@@ -1,7 +1,10 @@
 using Flax.Build;
 
-namespace ProceduralGraph;
+namespace ProceduralGraph.FlaxEngine;
 
+/// <summary>
+/// ProceduralGraphCore GameProjectTarget.
+/// </summary>
 public class ProceduralGraphCoreTarget : GameProjectTarget
 {
 }

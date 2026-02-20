@@ -1,102 +1,67 @@
-# Procedural Graph Core
+# Procedural Graph: Core (Flax Engine 1.11)
 
-**Procedural Graph Core** is [Flax Engine](https://flaxengine.com/) Editor Plugin designed to facilitate the creation and management of procedural generation graphs. It provides a framework for converting scene `Actors` into processing `Nodes`, which can then execute asynchronous generation tasks.
-
-## Overview
-
-This plugin establishes a core architecture for procedural generation within the Flax Editor. It decouples the representation of the graph (`Node`) from the actual generation logic (`IGenerator`) and the source data (`Actor`), allowing for flexible, asynchronous build processes.
-
-### Key Features
-
-- **Node Conversion System:** A robust interface (`INodeConverter`) to dynamically convert Flax `Actors` into graph `Nodes`.
-
-- **Asynchronous Generation:** Nodes produce `IGenerator` instances capable of running `BuildAsync` tasks, ensuring the editor remains responsive during heavy procedural generation.
-
-- **Actor Binding:** The `ActorNode` class handles binding to scene actors, tracking their IDs, and detecting updates automatically.
-
-- **Hierarchy Management:** Built-in support for parent/child node relationships and propagation flags (`PropagateUpwards`, `PropagateDownwards`).
+The runtime execution layer for the [Procedural Graph framework](https://github.com/procedural-graph/Core). It seamlessly integrates powerful procedural logic directly into your native Flax Engine workflows. It listens for scene and actor changes, manages asynchronous graph generation tasks, and coordinates the transformation of Flax Actors into procedural graph entities.
 
 ## Installation
 
-1. Copy the `Procedural-Graph-Core` folder into the `Plugins` directory of your Flax project.
-2. Regenerate your project script files (right-click `.flaxproj` -> **Generate scripts**).
-3. Open the editor and ensure the plugin is enabled in **Tools -> Plugins**.
+1. Copy the `Procedural Graph Core` folder into the `Plugins` directory of your Flax project.
+2. Open the `.flaxproj` file in your project's root directory using your preferred text editor and append a reference to the plugin:
 
-## Architecture & Usage
-
-The core workflow revolves around the **Builder**, **Converters**, **Nodes**, and **Generators**.
-
-### 1. The Procedural Graph Builder
-
-The `ProceduralGraphBuilder` is an `EditorPlugin` that manages the registry of node converters. You must register your custom converters here to allow the system to recognize and process different Actor types.
-
-```csharp
-// Example: Accessing the plugin to register a converter
-var graphBuilder = FlaxEngine.PluginManager.GetPlugin<ProceduralGraph.ProceduralGraphBuilder>();
-graphBuilder.AddConverter<MyCustomNodeConverter>();
-
+```json
+"References": [
+ {
+     "Name": "$(EnginePath)/Flax.flaxproj"
+ },
+ {
+     "Name": "$(ProjectPath)/Plugins/Procedural Graph Core/Procedural Graph Core.flaxproj"
+ }
+]
 ```
 
-### 2. Defining Nodes
+3. Open the Flax Editor and ensure the plugin is enabled by navigating to **Tools -> Plugins**.
 
-Create classes that inherit from `Node` or `ActorNode`.
+## Getting Started
 
-- **`Node`**: The base class for all graph elements. It holds references to parents and children and defines the `CreateGenerator()` method.
+To bridge your custom Flax Actors with the procedural generation system, you need to register Graph Converters. Converters translate engine-specific objects into engine-agnostic `IGraphNode` entities.
 
-- **`ActorNode`**: A specialized node that represents a Flax `Actor`. It automatically handles serialization of the Actor ID and monitors the Actor for changes.
+Create a new `EditorPlugin` in your project's `Source` directory to register your custom converters during initialization:
 
 ```csharp
-public class MyCustomNode : ActorNode
+using ProceduralGraph.FlaxEngine;
+using ProceduralGraph.Generic.Converters;
+
+namespace MyProject;
+
+[PluginLoadOrder(DeinitializeBefore = typeof(ProceduralGraphPlugin), InitializeAfter = typeof(ProceduralGraphPlugin))]
+internal class MyPlugin : EditorPlugin
 {
-    public override IGenerator CreateGenerator()
+    public override void Initialize()
     {
-        return new MyCustomGenerator(this);
+        base.Initialize();
+
+        // Subscribe to the initialization event to register your custom converters
+        PluginManager.GetPlugin<ProceduralGraphPlugin>().Initializing += OnInitializing;
+    }
+
+    public override void Deinitialize()
+    {
+        base.Deinitialize();
+
+        // Clean up the event subscription
+        PluginManager.GetPlugin<ProceduralGraphPlugin>().Initializing -= OnInitializing;
+    }
+
+    private void OnInitializing(ProceduralGraphPlugin plugin, GraphConverterRegistrar registrar)
+    {
+        // Register your custom implementations of IGraphConverter here
+        registrar.Add(new MyGraphConverter());
     }
 }
 
 ```
 
-### 3. Converters (`INodeConverter`)
+_For more specific guidance on creating plugins for Flax Engine, please refer to the [official Flax Engine Plugin Documentation](https://docs.flaxengine.com/manual/scripting/plugins/index.html)._
 
-To bridge the gap between a Flax Actor in your scene and the procedural graph, implement the `INodeConverter` interface.
-
-```csharp
-public class MyCustomNodeConverter : INodeConverter
-{
-    public bool TryConvert(Actor actor, out ActorNode node)
-    {
-        if (actor is MyScriptType)
-        {
-            node = new MyCustomNode();
-            node.Actor = actor;
-            return true;
-        }
-        node = null;
-        return false;
-    }
-}
-
-```
-
-### 4. Generators (`IGenerator`)
-
-The `IGenerator` interface handles the actual "work" of the node. This separation ensures that logic data (`Node`) is kept separate from execution logic (`Generator`).
-
-```csharp
-public class MyCustomGenerator : IGenerator
-{
-    public async Task BuildAsync(CancellationToken cancellationToken)
-    {
-        // Perform procedural generation logic here
-    }
-}
-
-```
-
-## License
-
-This project is licensed under the **PolyForm Shield License 1.0.0**.
-
-> **Summary:** You are free to use, modify, and distribute this software, provided you do not use it to build a product that competes with the software itself.
-
-Please see the [LICENSE.md](LICENSE.md) file for the full legal text.
+- **`GraphConverterRegistrar`**: The central registry used to inject your custom conversion logic into the core framework.
+- **`IGraphConverter`**: The interface responsible for converting between Flax Engine objects (like `Actor`s or `Scene`s) and procedural graph entities. Implementations of this interface evaluate if they `CanConvert` a specific object and handle the instantiation of the corresponding `IGraphNode`.
+- **`LifecycleGraphNode<TKey, TValue>`**: The base node type that handles asynchronous start/stop lifecycles, ensuring proper resource allocation and background task cancellation when the Flax scene hierarchy changes.
